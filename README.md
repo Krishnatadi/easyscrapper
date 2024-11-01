@@ -6,7 +6,7 @@
 
 - [Features](#features)
 - [Installation](#installation)
-- [# WebScraper Class Overview](WebScraper-Class-Overview)
+- [WebScraper Class Overview](#WebScraper-Class-Overview)
 - [Usage](#usage)
   - [Fetching Raw Content]
   - [Providing Parsed Data]
