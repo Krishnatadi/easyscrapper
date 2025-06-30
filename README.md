@@ -42,21 +42,6 @@ pip install easyscrapper
 | Preprocessing for AI       | Prepare web data for indexing into vector stores like Pinecone, FAISS, ChromaDB, etc. |
 
 
-## WebScraper Class Overview
-
-| Function              | Description                                                                 | Example                                                       |
-|-----------------------|-----------------------------------------------------------------------------|---------------------------------------------------------------|
-| `__init__(url, user_agent=None)` | Initializes the `WebScraper` instance with a URL and optional user agent. | `scraper = WebScraper("https://www.example.com")`              |
-| `fetch_content()`     | Fetches the HTML content from the specified URL.                          | `scraper.fetch_content()`                                    |
-| `get_raw_content()`   | Returns the entire scraped content without parsing.                       | `raw_content = scraper.get_raw_content()`                    |
-| `parse_content()`     | Parses the HTML content and returns extracted headings and paragraphs.     | `parsed_data = scraper.parse_content()`                      |
-| `extract_all_data(soup)` | Extracts all text content (headings and paragraphs) from the parsed HTML. | `content = scraper.extract_all_data(soup)`                  |
-| `extract_links(soup)` | Extracts all links (URLs) from the HTML content.                         | `links = scraper.extract_links(soup)`                        |
-| `save_to_file(data, filename='scraped_data.txt')` | Saves the provided data to a text file.                               | `scraper.save_to_file(parsed_data, 'output.txt')`          |
-
-
-
-
 ## Function Reference
 
 | Function                                | Description                                      |
@@ -72,22 +57,26 @@ pip install easyscrapper
 | `chunk_plain_text(text, max_words)`     | Chunks plain text into N-word segments           |
 | `chunk_provided_text(text, max_words)`  | Same as above, but from user input               |
 | `scrape_all(tags, plain_text, rag_format)` | Extracts everything at once                    |
+| `extract_meta_tags()` | Extracts meta tags such as title, description, keywords, and Open Graph data                    |
+| `get_canonical_url()` |  Extracts the canonical URL                    |
 | `save_to_file(data, filename)`          | Saves output to `.txt` or `.json` file           |
 
 
 
 ## EasyScrapper CLI Options
 
-| Flag            | Alias | Description                                                                 | Example Usage                      |
-|------------------|-------|-----------------------------------------------------------------------------|------------------------------------|
-| `--tags`         | `-t`  | Extract specified HTML tags (`h1`, `p`, `div`, etc.)                         | `--tags h1 p div`                  |
-| `--plain-text`   | `-p`  | Extract full plain visible text                                             | `--plain-text` or `-p`             |
-| `--emails`       | `-e`  | Extract all email addresses (inline and `mailto:` links)                    | `--emails` or `-e`                 |
-| `--links`        | `-l`  | Extract all hyperlinks (from `<a href>`)                                    | `--links` or `-l`                  |
-| `--images`       | `-i`  | Extract all image URLs (including background images in `style`/`href`)      | `--images` or `-i`                 |
-| `--rag`          | `-r`  | Extract RAG-style chunks from plain text (for vector DBs or AI pipelines)   | `--rag` or `-r`                    |
-| `--output`       | `-o`  | Save the result to a JSON file                                              | `--output data.json` or `-o out.json` |
-| `--help`         | `-h`  | Show help message                                                           | `--help` or `-h`                   |
+| Flag              | Alias | Description                                                                 | Example Usage                                 |
+|-------------------|-------|-----------------------------------------------------------------------------|-----------------------------------------------|
+| `--tags`          | `-t`  | Extract specified HTML tags (`h1`, `p`, `div`, etc.)                         | `--tags h1 p div`                             |
+| `--plain-text`    | `-p`  | Extract full plain visible text                                             | `--plain-text` or `-p`                        |
+| `--emails`        | `-e`  | Extract all email addresses (inline and `mailto:` links)                    | `--emails` or `-e`                            |
+| `--links`         | `-l`  | Extract all hyperlinks (from `<a href>`)                                    | `--links` or `-l`                             |
+| `--images`        | `-i`  | Extract all image URLs (including background images in `style`/`href`)      | `--images` or `-i`                            |
+| `--rag`           | `-r`  | Extract RAG-style chunks from plain text (for vector DBs or AI pipelines)   | `--rag` or `-r`                               |
+| `--meta`          | `-m`  | Extract all `<meta>` tags (SEO, Open Graph, Twitter card info, etc.)        | `--meta` or `-m`                              |
+| `--canonical`     | `-c`  | Extract canonical link tag (`<link rel="canonical" href="...">`)            | `--canonical` or `-c`                         |
+| `--output`        | `-o`  | Save the result to a JSON file                                              | `--output data.json` or `-o out.json`         |
+| `--help`          | `-h`  | Show help message                    |
 
 
 
@@ -271,6 +260,29 @@ data = scraper.scrape_all(tags=['h1', 'p'], plain_text=True)
 scraper.save_to_file(data, filename='easyscrapper_output.json')
 ```
 
+### 14.  Meta Tag Extraction - extract_meta_tags()
+Extracts all `<meta>` tags from a webpage, including name, property, and content attributes. This is helpful for getting SEO data, Open Graph info, keywords, descriptions, etc.
+```python
+scraper = WebScraper('https://pypi.org/project/easyscrapper/')
+scraper.fetch_content()
+
+meta_tags = scraper.extract_meta_tags()
+print("Meta Tags:")
+for name, content in meta_tags.items():
+    print(f"{name}: {content}")
+```
+
+
+### 15.  Canonical URL Extraction - get_canonical_url()
+Finds the `<link rel="canonical" href="...">` tag, which indicates the preferred URL for the content. Useful in SEO or deduplication tasks.
+```python
+scraper = WebScraper('https://github.com/Krishnatadi/')
+scraper.fetch_content()
+
+canonical = scraper.get_canonical_url()
+print("Canonical URL:", canonical)
+```
+
 ---
 
 ## Example CLI Commands
@@ -291,6 +303,14 @@ easyscrapper https://www.example.com --rag
 # Full combo with everything
 easyscrapper https://www.example.com -t h1 p -p -e -l -i -r -o full_output.json
 
+# Extracts all meta tags
+easyscrapper https://www.example.com --meta
+
+# Extracts canonical URL
+easyscrapper https://www.example.com --canonical
+
+# Extracts both meta tags and canonical URL
+easyscrapper https://www.example.com -m -c
 ```
 
 ---

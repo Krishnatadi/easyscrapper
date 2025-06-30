@@ -125,6 +125,30 @@ class WebScraper:
             'images': self.extract_images(),
             'plain_text': plain if plain_text else None
         }
+    
+    def extract_meta_tags(self):
+        """Extracts meta tags such as title, description, keywords, and Open Graph data."""
+        if self.soup is None:
+            raise ValueError("Soup is empty. Fetch content first.")
+        
+        meta_data = {}
+        for tag in self.soup.find_all('meta'):
+            name = tag.get('name') or tag.get('property')
+            content = tag.get('content')
+            if name and content:
+                meta_data[name.strip()] = content.strip()
+        return meta_data
+
+    def get_canonical_url(self):
+        """
+        Extracts the canonical URL from <link rel="canonical"> if available.
+        Useful for SEO and content deduplication.
+        """
+        if self.soup is None:
+            raise ValueError("Soup is empty. Fetch content first.")
+        link_tag = self.soup.find('link', rel='canonical')
+        return link_tag['href'] if link_tag and link_tag.has_attr('href') else None
+
 
     def save_to_file(self, data, filename='easyscrapper_data.txt'):
         if filename.endswith('.json'):
