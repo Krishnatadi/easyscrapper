@@ -2,10 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name='easyscrapper',
-    version='1.0.0',
+    version='1.0.1',
     author='Krishna Tadi',
     author_email='er.krishnatadi@gmail.com',
-    description='EasyScrapper is a simple and effective Python package for web scraping. It allows you to fetch and extract data from any website without the hassle of complex parsing logic. This package is designed for developers who need quick and reliable web scraping solutions.',
+    description='easyscrapper is a fast, lightweight Python package and CLI tool that lets developers, data scientists, and AI engineers extract text, HTML, emails, links, and images from any public webpage - perfect for AI, RAG pipelines, SEO, content aggregation, and scalable data workflows with just one command or a few lines of code.',
     packages=find_packages(),
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -29,5 +29,11 @@ setup(
     'Source': 'https://github.com/krishnatadi/easyscrapper',
     'Issue Tracker': 'https://github.com/krishnatadi/easyscrapper/issues',
     },
+    entry_points={
+    'console_scripts': [
+        'easyscrapper = easyscrapper.cli:main'
+    ],
+},  
+
     license='MIT'
 )

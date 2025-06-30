@@ -1,61 +1,140 @@
-# easyscrapper/scraper.py
-
 import requests
+import re
+import json
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+
 
 class WebScraper:
     def __init__(self, url, user_agent=None):
         self.url = url
-        self.content = None
         self.user_agent = user_agent or "Mozilla/5.0"
+        self.content = None
+        self.soup = None
+        self.title = None
 
     def fetch_content(self):
-        """Fetches the HTML content from the URL."""
         headers = {'User-Agent': self.user_agent}
         try:
-            response = requests.get(self.url, headers=headers)
+            response = requests.get(self.url, headers=headers, timeout=10)
             response.raise_for_status()
             self.content = response.text
+            self.soup = BeautifulSoup(self.content, 'html.parser')
+            self.title = self.extract_title()
         except requests.RequestException as e:
             print(f"Error fetching the URL: {e}")
 
     def get_raw_content(self):
-        """Returns the entire scraped content without parsing."""
         if self.content is None:
             raise ValueError("Content is empty. Please fetch the content first.")
         return self.content
 
-    def parse_content(self):
-        """Returns parsed data (headings, paragraphs, links) as a single string."""
+    def extract_title(self):
+        if not self.soup:
+            return ''
+        title_tag = self.soup.find('title')
+        return title_tag.text.strip() if title_tag else ''
+
+    def extract_custom_tags(self, tags):
+        if self.soup is None:
+            raise ValueError("Soup is empty. Fetch content first.")
+        result = {}
+        for tag in tags:
+            result[tag] = [elem.get_text(strip=True) for elem in self.soup.find_all(tag)]
+        return result
+
+    def extract_links(self):
+        if self.soup is None:
+            raise ValueError("Soup is empty. Fetch content first.")
+        links = set()
+        for a in self.soup.find_all('a', href=True):
+            links.add(urljoin(self.url, a['href']))
+        return list(links)
+
+    def extract_emails(self):
         if self.content is None:
-            raise ValueError("Content is empty. Please fetch the content first.")
+            raise ValueError("Content is empty. Please fetch content first.")
+        emails = set(re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", self.content))
+        mailtos = [a['href'][7:] for a in self.soup.find_all('a', href=True) if a['href'].startswith('mailto:')]
+        return list(emails.union(mailtos))
 
-        soup = BeautifulSoup(self.content, 'lxml')
-        parsed_data = self.extract_all_data(soup)
-        return parsed_data
+    def extract_images(self):
+        if self.soup is None:
+            raise ValueError("Soup is empty. Fetch content first.")
+        images = []
 
-    def extract_all_data(self, soup):
-        """Extracts all text content, including headings and paragraphs, as a single string."""
-        content = []
-        
-        # Extract headings
-        for heading in soup.find_all(['h1', 'h2', 'h3']):
-            content.append(heading.get_text(strip=True))
-        
-        # Extract paragraphs
-        for paragraph in soup.find_all('p'):
-            content.append(paragraph.get_text(strip=True))
-        
-        # Join all extracted content into a single string
-        return '\n\n'.join(content)
+        for img in self.soup.find_all('img'):
+            src = img.get('src')
+            if src:
+                images.append({'src': urljoin(self.url, src), 'alt': img.get('alt', '')})
 
-    def extract_links(self, soup):
-        """Extracts all links (URLs) from the HTML content."""
-        return [a['href'] for a in soup.find_all('a', href=True)]
+        href_imgs = re.findall(r'href=["\'](.*?\.(?:jpg|jpeg|png|gif|svg|webp))["\']', self.content, re.IGNORECASE)
+        style_imgs = re.findall(r'url\(["\']?(.*?\.(?:jpg|jpeg|png|gif|svg|webp))["\']?\)', self.content, re.IGNORECASE)
+
+        existing = {img['src'] for img in images}
+        for img_url in href_imgs + style_imgs:
+            full_url = urljoin(self.url, img_url)
+            if full_url not in existing:
+                images.append({'src': full_url, 'alt': 'background'})
+                existing.add(full_url)
+
+        return images
+
+    def extract_plain_text(self):
+        if self.soup is None:
+            raise ValueError("Soup is empty. Fetch content first.")
+        return self.soup.get_text(separator=' ', strip=True)
+
+    def chunk_plain_text(self, text, max_words=100):
+        """Splits plain text into chunks of max_words each using basic logic (no NLTK)."""
+        words = text.split()
+        chunks = []
+        for i in range(0, len(words), max_words):
+            chunk = " ".join(words[i:i + max_words])
+            if chunk.strip():
+                chunks.append(chunk)
+        return chunks
+
+    def chunk_provided_text(self, text, max_words=100):
+        """User can provide custom text to chunk."""
+        return self.chunk_plain_text(text, max_words)
+
+    def scrape_all(self, tags=None, plain_text=False, rag_format=False):
+        tags = tags or ['h1', 'h2', 'p']
+        if self.soup is None:
+            raise ValueError("Soup is empty. Fetch content first.")
+
+        tag_data = self.extract_custom_tags(tags)
+        plain = self.extract_plain_text() if plain_text or rag_format else None
+
+        if rag_format:
+            chunks = self.chunk_plain_text(plain)
+            return {
+                'url': self.url,
+                'title': self.title,
+                'rag_chunks': [{'url': self.url, 'title': self.title, 'text': chunk} for chunk in chunks],
+                'plain_text': plain
+            }
+
+        return {
+            'url': self.url,
+            'title': self.title,
+            'custom_tags': tag_data,
+            'emails': self.extract_emails(),
+            'links': self.extract_links(),
+            'images': self.extract_images(),
+            'plain_text': plain if plain_text else None
+        }
 
     def save_to_file(self, data, filename='easyscrapper_data.txt'):
-        """Saves the provided data to a text file."""
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(data)
-        print(f"Data saved to {filename}.")
-
+        if filename.endswith('.json'):
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            print(f"JSON data saved to {filename}")
+        else:
+            # If data is not string (like a dict), convert it
+            if not isinstance(data, str):
+                data = str(data)
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(data)
+            print(f"Text data saved to {filename}")
